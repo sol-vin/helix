@@ -1,0 +1,16 @@
+name: helix
+version: 0.1.0
+
+authors:
+  - Ian Rash <ian@sol.vin>
+
+targets:
+  helix:
+    main: src/helix.cr
+  sandbox:
+    main: src/sandbox.cr
+  sandbox2:
+    main: src/sandbox2.cr
+crystal: '>= 1.13.2'
+
+license: MIT
