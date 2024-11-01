@@ -12,46 +12,50 @@ gene Velocity do
   property vy : Float32 = 0.0_f32
 end
 
-trait(MovePosition, Position, Velocity) do
-  self.x += self.vx
-  self.y += self.vy
+trait(MovePosition, Position, Velocity) do |me|
+  me.x += me.vx
+  me.y += me.vy
   puts "MovePosition trait ran!"
 end
 
-trait(EnactPhysics, Position, Velocity) do
+trait(EnactPhysics, Position, Velocity) do |_|
   puts "EnactPhysics trait ran!"
 end
 
-trait(A) do
+trait(A) do |_|
   puts "A trait ran!"
 end
 
-trait(B) do
+trait(B) do |_|
   puts "B trait ran!"
 end
 
-trait(C) do
+trait(C) do |_|
   puts "C trait ran!"
 end
 
-trait(D) do
+trait(D) do |_|
   puts "D trait ran!"
 end
 
-trait(E) do
+trait(E) do |_|
   puts "E trait ran!"
 end
 
-trait(F) do
+trait(F) do |_|
   puts "F trait ran!"
 end
 
-trait(G) do
+trait(G) do |_|
   puts "G trait ran!"
 end
 
-trait(H) do
+trait(H) do |_|
   puts "H trait ran!"
+end
+
+trait(I) do |_|
+  puts "I trait ran!"
 end
 
 class MySpecies < Species
@@ -60,9 +64,9 @@ class MySpecies < Species
 
   give(
     MovePosition >>
-    A << B << C >>
+    A << B << C <<
     D >>
-    E >> 
+    E << 
     F << G >> 
     H
   )
@@ -76,10 +80,12 @@ a.vy = 10.0_f32
 a.update
 puts a.x
 puts a.y
+puts "Disabled MovePosition"
 disable(a, MovePosition)
 a.update
 puts a.x
 puts a.y
+puts "Enabled MovePosition"
 enable(a, MovePosition)
 a.update
 puts a.x
@@ -89,4 +95,3 @@ puts a.as(Species).has_velocity?
 puts a.as(Species).can_a?
 puts a.as(Species).can_h?
 puts a.as(Species).can_move_position?
-

@@ -2,6 +2,13 @@ require "wait_group"
 
 module Helix
   module Traits
+    macro export_code(trait)
+      {% run_method = parse_type("::Helix::Traits::#{trait}::Exec").resolve.methods.find {|m| m.name == "run"} %}
+      {% if parse_type("::Helix::Traits::#{trait}::Type").resolve? %}
+        {{parse_type("::Helix::Traits::#{trait}::Exec").resolve.constant("ARG_NAME").id}} = self.as(::Helix::Traits::{{trait}}::Type)
+      {% end %}
+      {{run_method.body}}
+    end
   end
   
   # Creates a new gene. Genes are the building blocks of Speciess, Genes should hold pure data and associated functions.
@@ -33,7 +40,7 @@ module Helix
   # Genes used. You cannot use the same Gene more than once.
   macro trait(name, *genes, &block)
     {% raise "Gene used more than once in #{genes}" if genes.uniq.size != genes.size %}
-    {% raise "Wrong number of arguments in trait block. You must include no arguments (self is the object that uses the trait)" if block.args.size != 0 %}
+    {% raise "Wrong number of arguments in trait block. You must include one argument (the species that has all these genes)" if block.args.size != 1 %}
     {% raise "Trait blocks cannot use splat. Sorry!" if block.splat_index %}
     module ::Helix::Traits
       module {{name}}
@@ -48,11 +55,16 @@ module Helix
           {% end %}
         end
 
+        {% if !genes.empty?%}
+          alias Type = {{genes.map {|g| "::Helix::Genes::#{g}"}.join(" | ").id}}
+        {% end %}
+
         # Hides the trait method implementation
         module Exec
-          include ::Helix::Traits::{{name}}::Genes
+          include Genes
 
-          def run
+          ARG_NAME = {{block.args[0].stringify}}
+          def run()
             {{block.body}}
           end
         end
@@ -65,6 +77,7 @@ module Helix
 
   macro give(trait_expression)
     {% 
+      # First we have to unroll the Call stack so we can start at the top, instead of the bottom.
       root = trait_expression
       linearized = [] of Call
       stack = [nil]
@@ -77,7 +90,7 @@ module Helix
           else
             linearized.unshift root
 
-            stack.clear # (Next) We are at some root
+            stack.clear # (Break) We are at some root
           end
         else
           raise "Found #{root.class_name} - #{root}, expected Call"
@@ -86,6 +99,7 @@ module Helix
       end
     %}
 
+    # Include all the traits.
     {% for trait_call, index in linearized %}
       {% if index == 0 %}
       include ::Helix::Traits::{{trait_call.receiver}}
@@ -94,6 +108,7 @@ module Helix
     {% end %}
 
     macro finished
+      # Create a list of all the traits and if they have been enabled or not
       @%traits_enabled : Hash(String, Bool) = {
         {% for trait_call, index in linearized %}
         {% if index == 0 %}
@@ -103,6 +118,9 @@ module Helix
         {% end %}
       } of String => Bool
 
+      {% 
+        # Override the enable and disable method with our actual traits_enabled hash
+      %}
       def enable(trait : Class)
         if @%traits_enabled.has_key?(trait.to_s)
           @%traits_enabled[trait.to_s] = true
@@ -120,13 +138,22 @@ module Helix
       end
 
       def update
-        {% waitgroup_mode = false %}
-        {% waitgroup_traits = [] of Path %}
+
+        {% 
+          # Determines if the tokenizer should be changed to collecting a wait group
+          waitgroup_mode = false 
+          waitgroup_traits = [] of Path
+        %}
 
         {% for trait_call, index in linearized %}
+          {% 
+            # if the current call is the << (shovel) operator shovel the trait into a waitgroup and turn on wait group mode
+          %}
           {% if trait_call.name == "<<" && !waitgroup_mode %}
              {% 
-              waitgroup_mode = true 
+              waitgroup_mode = true
+              # Since we are starting the waitgroup we need to get the first part of the shovel
+              # Have to treat index 0 special because it's reciever is not an Expressions but a Path
               if index == 0
                 waitgroup_traits << trait_call.receiver 
                 waitgroup_traits << trait_call.args[0]
@@ -135,8 +162,14 @@ module Helix
                 waitgroup_traits << trait_call.args[0]
               end
              %}
+          {% 
+            # If it is in waitgroup mode and we are still shovelling into a waitgroup, just shovel
+          %}
           {% elsif trait_call.name == "<<" && waitgroup_mode %}
             {% waitgroup_traits << trait_call.args[0] %}
+          {% 
+            # We are in a waitgroup but now we hit the forward shovel so its time to stop and output the waitgroup
+          %}
           {% elsif waitgroup_mode && trait_call.name == ">>" %}
             {% waitgroup_mode = false %}
             
@@ -144,9 +177,15 @@ module Helix
 
             # Flush the traits into a waitgroup
             {% for trait in waitgroup_traits %}
+              {% 
+                parse_type("::Helix::Traits::#{trait}::Genes").resolve.ancestors.select {|g| ::Helix::Genes.ancestors.any? {|g2| g == g2}}.each do |gene| 
+                  raise "Trait #{trait} cannot be added to #{@type} without the #{gene} gene" unless @type < gene 
+                end 
+              %}
+
               spawn do 
                 if @%traits_enabled[{{"Helix::Traits::#{trait}"}}]?
-                  {{parse_type("::Helix::Traits::#{trait}::Exec").resolve.methods.find {|m| m.name == "run"}.body}}
+                  ::Helix::Traits.export_code({{trait}})
                 end
               ensure
                 %waitgroup.done
@@ -158,15 +197,21 @@ module Helix
             %waitgroup.wait
             {% waitgroup_traits.clear %}
 
-       
+            {% 
+              parse_type("::Helix::Traits::#{trait_call.args[0]}::Genes").resolve.ancestors.select {|g| ::Helix::Genes.ancestors.any? {|g2| g == g2}}.each do |gene| 
+               raise "Trait #{trait_call.args[0]} cannot be added to #{@type} without the #{gene} gene" unless @type < gene 
+             end 
+            %}
 
-            {% for gene in parse_type("::Helix::Traits::#{trait_call.args[0]}::Genes").resolve.ancestors.select {|g| ::Helix::Genes.ancestors.any? {|g2| g == g2}} %}
-              {% raise "Trait #{trait_call.args[0]} cannot be added to #{@type} without the #{gene} gene" unless @type < gene %}
-            {% end %}
+            {% if (index + 1 != linearized.size && linearized[index + 1].name != "<<") || (index + 1 == linearized.size) %}
+              {% for gene in parse_type("::Helix::Traits::#{trait_call.args[0]}::Genes").resolve.ancestors.select {|g| ::Helix::Genes.ancestors.any? {|g2| g == g2}} %}
+                {% raise "Trait #{trait_call.args[0]} cannot be added to #{@type} without the #{gene} gene" unless @type < gene %}
+              {% end %}
 
-            if @%traits_enabled[{{"Helix::Traits::#{trait_call.args[0]}"}}]?
-              {{parse_type("::Helix::Traits::#{trait_call.args[0]}::Exec").resolve.methods.find {|m| m.name == "run"}.body}}
-            end
+              if @%traits_enabled[{{"Helix::Traits::#{trait_call.args[0]}"}}]?
+                ::Helix::Traits.export_code({{trait_call.args[0]}})
+              end
+              {% end %}
           {% elsif trait_call.name == ">>" %}
             {% if index == 0 %}
               {% for gene in parse_type("::Helix::Traits::#{trait_call.receiver}::Genes").resolve.ancestors.select {|g| ::Helix::Genes.ancestors.any? {|g2| g == g2}} %}
@@ -175,7 +220,7 @@ module Helix
 
 
               if @%traits_enabled[{{"Helix::Traits::#{trait_call.receiver}"}}]?
-                {{parse_type("::Helix::Traits::#{trait_call.receiver}::Exec").resolve.methods.find {|m| m.name == "run"}.body}}
+                ::Helix::Traits.export_code({{trait_call.receiver}})
               end
             {% end %}
 
@@ -185,7 +230,7 @@ module Helix
               {% end %}
 
               if @%traits_enabled[{{"Helix::Traits::#{trait_call.args[0]}"}}]?
-                {{parse_type("::Helix::Traits::#{trait_call.args[0]}::Exec").resolve.methods.find {|m| m.name == "run"}.body}}
+                ::Helix::Traits.export_code({{trait_call.args[0]}})
               end
               {% end %}
           {% else %}

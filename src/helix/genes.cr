@@ -10,7 +10,7 @@ module Helix::Genes
           if Helix::Genes.ancestors.includes?(ancestor)
             # Check if there is a duplicate
             if (type.ancestors.size-1) != (type.ancestors - [ancestor]).size
-              raise "!!!!!WARNING GENE CONFLICT!!!!!\n - Gene #{ancestor} was added multiple times to game object #{type}. #{type.ancestors}"
+              raise "!!!!!WARNING GENE CONFLICT!!!!!\n - Gene #{ancestor} was added multiple times to species #{type}. #{type.ancestors}"
             end
           end
         end
