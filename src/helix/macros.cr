@@ -2,10 +2,16 @@ require "wait_group"
 
 module Helix
   module Traits
-    macro export_code(trait)
-      {% run_method = parse_type("::Helix::Traits::#{trait}::Exec").resolve.methods.find {|m| m.name == "run"} %}
-      {% if parse_type("::Helix::Traits::#{trait}::Type").resolve? %}
-        {{parse_type("::Helix::Traits::#{trait}::Exec").resolve.constant("ARG_NAME").id}} = self.as(::Helix::Traits::{{trait}}::Type)
+    macro export_code(trait, type)
+      {% 
+        parse_type("#{trait}::Genes").resolve.ancestors.select {|g| ::Helix::Genes.ancestors.any? {|g2| g == g2}}.each do |gene| 
+          raise "Trait #{trait} cannot be added to #{type} without the #{gene} gene" unless type.resolve < gene 
+        end 
+      %}
+
+      {% run_method = parse_type("#{trait}::Exec").resolve.methods.find {|m| m.name == "run"} %}
+      {% if parse_type("#{trait}::Type").resolve? %}
+        {{parse_type("#{trait}::Exec").resolve.constant("ARG_NAME").id}} = self.as({{trait}}::Type)
       {% end %}
       {{run_method.body}}
     end
@@ -13,25 +19,24 @@ module Helix
   
   # Creates a new gene. Genes are the building blocks of Speciess, Genes should hold pure data and associated functions.
   macro gene(name, &block)
-    module ::Helix::Genes
-      module {{name}}
+    module {{name}}
+      {% if block.is_a?(Block) %}
+        {{block.body}}
+      {% end %}
 
-        {% if block.is_a?(Block) %}
-          {{block.body}}
-        {% end %}
-
-        def has_{{name.id.split("::").join("_").underscore.id}}? : Bool
-          true
-        end
+      def has_{{name.id.split("::").join("_").underscore.id}}? : Bool
+        true
       end
+    end
 
+    module ::Helix::Genes
       include {{name}}
     end
   end
 
   # Allows a Species to inherit a gene. 
   macro inherit(name)
-    include ::Helix::Genes::{{name}}
+    include {{name}}
     \{% raise "Cannot add a gene to something that isn't a Module or a Species" unless @type < Species || @type.module? %}
   end
 
@@ -42,34 +47,34 @@ module Helix
     {% raise "Gene used more than once in #{genes}" if genes.uniq.size != genes.size %}
     {% raise "Wrong number of arguments in trait block. You must include one argument (the species that has all these genes)" if block.args.size != 1 %}
     {% raise "Trait blocks cannot use splat. Sorry!" if block.splat_index %}
-    module ::Helix::Traits
-      module {{name}}
-        def can_{{name.id.split("::").join("_").underscore.id}}? : Bool
-          true
-        end
-        
-        # Tracks the genes needed for this trait
-        module Genes
-          {% for gene in genes.map {|g| "::Helix::Genes::#{g}"} %}
-          include {{gene.id}}
-          {% end %}
-        end
-
-        {% if !genes.empty?%}
-          alias Type = {{genes.map {|g| "::Helix::Genes::#{g}"}.join(" | ").id}}
+    module {{name}}
+      def can_{{name.id.split("::").join("_").underscore.id}}? : Bool
+        true
+      end
+      
+      # Tracks the genes needed for this trait
+      module Genes
+        {% for gene in genes %}
+        include {{gene.id}}
         {% end %}
-
-        # Hides the trait method implementation
-        module Exec
-          include Genes
-
-          ARG_NAME = {{block.args[0].stringify}}
-          def run()
-            {{block.body}}
-          end
-        end
       end
 
+      {% if !genes.empty? && block.args[0] != "_" %}
+        alias Type = {{genes.join(" | ").id}}
+      {% end %}
+
+      # Hides the trait method implementation
+      module Exec
+        include Genes
+
+        ARG_NAME = {{block.args[0].stringify}}
+        def run()
+          {{block.body}}
+        end
+      end
+    end
+    
+    module ::Helix::Traits
       # Creates a list of all the traits in Traits
       include {{name}}
     end
@@ -102,9 +107,9 @@ module Helix
     # Include all the traits.
     {% for trait_call, index in linearized %}
       {% if index == 0 %}
-      include ::Helix::Traits::{{trait_call.receiver}}
+      include {{trait_call.receiver}}
       {% end %}
-      include ::Helix::Traits::{{trait_call.args[0]}}
+      include {{trait_call.args[0]}}
     {% end %}
 
     macro finished
@@ -112,9 +117,9 @@ module Helix
       @%traits_enabled : Hash(String, Bool) = {
         {% for trait_call, index in linearized %}
         {% if index == 0 %}
-        {{"Helix::Traits::#{trait_call.receiver}"}} => true,
+        {{"#{trait_call.receiver}"}} => true,
         {% end %}
-        {{"Helix::Traits::#{trait_call.args[0]}"}} => true,
+        {{"#{trait_call.args[0]}"}} => true,
         {% end %}
       } of String => Bool
 
@@ -138,7 +143,6 @@ module Helix
       end
 
       def update
-
         {% 
           # Determines if the tokenizer should be changed to collecting a wait group
           waitgroup_mode = false 
@@ -177,15 +181,9 @@ module Helix
 
             # Flush the traits into a waitgroup
             {% for trait in waitgroup_traits %}
-              {% 
-                parse_type("::Helix::Traits::#{trait}::Genes").resolve.ancestors.select {|g| ::Helix::Genes.ancestors.any? {|g2| g == g2}}.each do |gene| 
-                  raise "Trait #{trait} cannot be added to #{@type} without the #{gene} gene" unless @type < gene 
-                end 
-              %}
-
               spawn do 
-                if @%traits_enabled[{{"Helix::Traits::#{trait}"}}]?
-                  ::Helix::Traits.export_code({{trait}})
+                if @%traits_enabled[{{"#{trait}"}}]?
+                  ::Helix::Traits.export_code({{trait}}, {{@type}})
                 end
               ensure
                 %waitgroup.done
@@ -197,40 +195,21 @@ module Helix
             %waitgroup.wait
             {% waitgroup_traits.clear %}
 
-            {% 
-              parse_type("::Helix::Traits::#{trait_call.args[0]}::Genes").resolve.ancestors.select {|g| ::Helix::Genes.ancestors.any? {|g2| g == g2}}.each do |gene| 
-               raise "Trait #{trait_call.args[0]} cannot be added to #{@type} without the #{gene} gene" unless @type < gene 
-             end 
-            %}
-
             {% if (index + 1 != linearized.size && linearized[index + 1].name != "<<") || (index + 1 == linearized.size) %}
-              {% for gene in parse_type("::Helix::Traits::#{trait_call.args[0]}::Genes").resolve.ancestors.select {|g| ::Helix::Genes.ancestors.any? {|g2| g == g2}} %}
-                {% raise "Trait #{trait_call.args[0]} cannot be added to #{@type} without the #{gene} gene" unless @type < gene %}
-              {% end %}
-
-              if @%traits_enabled[{{"Helix::Traits::#{trait_call.args[0]}"}}]?
-                ::Helix::Traits.export_code({{trait_call.args[0]}})
+              if @%traits_enabled[{{"#{trait_call.args[0]}"}}]?
+                ::Helix::Traits.export_code({{trait_call.args[0]}}, {{@type}})
               end
               {% end %}
           {% elsif trait_call.name == ">>" %}
             {% if index == 0 %}
-              {% for gene in parse_type("::Helix::Traits::#{trait_call.receiver}::Genes").resolve.ancestors.select {|g| ::Helix::Genes.ancestors.any? {|g2| g == g2}} %}
-                {% raise "Trait #{trait_call.receiver} cannot be added to #{@type} without the #{gene} gene" unless @type < gene %}
-              {% end %}
-
-
-              if @%traits_enabled[{{"Helix::Traits::#{trait_call.receiver}"}}]?
-                ::Helix::Traits.export_code({{trait_call.receiver}})
+              if @%traits_enabled[{{"#{trait_call.receiver}"}}]?
+                ::Helix::Traits.export_code({{trait_call.receiver}}, {{@type}})
               end
             {% end %}
 
             {% if index + 1 != linearized.size && linearized[index + 1].name != "<<" %}
-              {% for gene in parse_type("::Helix::Traits::#{trait_call.args[0]}::Genes").resolve.ancestors.select {|g| ::Helix::Genes.ancestors.any? {|g2| g == g2}} %}
-                {% raise "Trait #{trait_call.args[0]} cannot be added to #{@type} without the #{gene} gene" unless @type < gene %}
-              {% end %}
-
-              if @%traits_enabled[{{"Helix::Traits::#{trait_call.args[0]}"}}]?
-                ::Helix::Traits.export_code({{trait_call.args[0]}})
+              if @%traits_enabled[{{"#{trait_call.args[0]}"}}]?
+                ::Helix::Traits.export_code({{trait_call.args[0]}}, {{@type}})
               end
               {% end %}
           {% else %}
@@ -240,13 +219,5 @@ module Helix
         {% end %}
       end
     end
-  end
-
-  macro enable(object, trait)
-    {{object}}.enable(::Helix::Traits::{{trait}})
-  end
-
-  macro disable(object, trait)
-    {{object}}.disable(::Helix::Traits::{{trait}})
   end
 end

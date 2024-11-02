@@ -12,13 +12,13 @@ gene Velocity do
   property vy : Float32 = 0.0_f32
 end
 
-trait(MovePosition, Position, Velocity) do |me|
+trait(Position::Move, Position, Velocity) do |me|
   me.x += me.vx
   me.y += me.vy
-  puts "MovePosition trait ran!"
+  puts "Position::Move trait ran!"
 end
 
-trait(EnactPhysics, Position, Velocity) do |_|
+trait(Enact::Physics, Position, Velocity) do |_|
   puts "EnactPhysics trait ran!"
 end
 
@@ -62,14 +62,12 @@ class MySpecies < Species
   inherit Position
   inherit Velocity
 
-  give(
-    MovePosition >>
+  give Position::Move >>
     A << B << C <<
     D >>
     E << 
     F << G >> 
     H
-  )
 end
 
 a = MySpecies.new
@@ -81,12 +79,12 @@ a.update
 puts a.x
 puts a.y
 puts "Disabled MovePosition"
-disable(a, MovePosition)
+a.disable(Position::Move)
 a.update
 puts a.x
 puts a.y
 puts "Enabled MovePosition"
-enable(a, MovePosition)
+a.enable(Position::Move)
 a.update
 puts a.x
 puts a.y
@@ -94,4 +92,5 @@ puts a.as(Species).has_position?
 puts a.as(Species).has_velocity?
 puts a.as(Species).can_a?
 puts a.as(Species).can_h?
-puts a.as(Species).can_move_position?
+puts a.as(Species).can_position_move?
+puts a.as(Species).can_enact_physics?

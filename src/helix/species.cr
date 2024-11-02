@@ -12,13 +12,13 @@ abstract class Helix::Species
 
   macro finished
     {% for gene in Genes.ancestors %}
-    def has_{{gene.id.split("::")[1..].join("_").underscore.id}}? : Bool
+    def has_{{gene.id.split("::").join("_").underscore.id}}? : Bool
       false
     end
     {% end %}
 
     {% for trait in Traits.ancestors %}
-    def can_{{trait.id.split("::")[2..].join("_").underscore.id}}? : Bool
+    def can_{{trait.id.split("::").join("_").underscore.id}}? : Bool
       false
     end
     {% end %}

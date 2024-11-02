@@ -1,26 +1,12 @@
-module A
-  def a
-    puts "A"
+macro signal(name, a, b, &block)
+  {% 
+    puts a, b 
+    puts block.body 
+  %}
+end
+
+signal DamageCheck, Bullet | Rectangle, Enemy | Rectangle | Health do |bullet, enemy|
+  if bullet.intersects?(enemy)
+    enemy.damage(bullet.damage)
   end
 end
-
-module B
-  def b
-    puts "B"
-  end
-end
-
-alias C = A | B
-
-class D
-  include A
-  include B
-end
-
-d = D.new
-d.a
-d.b
-
-c = D.new.as(C)
-c.a
-c.b
