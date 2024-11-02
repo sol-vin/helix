@@ -62,11 +62,10 @@ class MySpecies < Species
   inherit Position
   inherit Velocity
 
-  give Position::Move >>
-    A << B << C <<
-    D >>
-    E << 
-    F << G >> 
+  give Position::Move,
+    A | B | C,
+    D | E,
+    F | G,
     H
 end
 

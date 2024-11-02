@@ -80,46 +80,85 @@ module Helix
     end
   end
 
-  macro give(trait_expression)
-    {% 
-      # First we have to unroll the Call stack so we can start at the top, instead of the bottom.
-      root = trait_expression
-      linearized = [] of Call
-      stack = [nil]
-      stack.each do |_| # (While)
-        stack << nil # (Seed the next loop)
-        if root.is_a?(Call)
-          if root.receiver && !root.receiver.is_a?(Path)
-            linearized.unshift root
-            root = root.receiver
-          else
-            linearized.unshift root
-
-            stack.clear # (Break) We are at some root
-          end
-        else
-          raise "Found #{root.class_name} - #{root}, expected Call"
-          stack.clear
-        end
-      end
-    %}
-
+  macro give(*traits)
     # Include all the traits.
-    {% for trait_call, index in linearized %}
-      {% if index == 0 %}
-      include {{trait_call.receiver}}
+    {% for trait in traits %}
+      {% if trait.is_a?(Path) %}
+        include {{trait}}
+      {% elsif trait.is_a?(Call) %}
+       {% 
+          # First we have to unroll the Call stack so we can start at the top, instead of the bottom.
+          root = trait
+          linearized = [] of Call
+          stack = [nil]
+          stack.each do |_| # (While)
+            stack << nil # (Seed the next loop)
+            if root.is_a?(Call)
+              raise "Unexpected!" unless root.name == "|"
+              if root.receiver && !root.receiver.is_a?(Path)
+                linearized.unshift root
+                root = root.receiver
+              else
+                linearized.unshift root
+
+                stack.clear # (Break) We are at some root
+              end
+            else
+              raise "Found #{root.class_name} - #{root}, expected Call"
+              stack.clear
+            end
+          end
+        %}
+        {% for trait_call, index in linearized %}
+          {% if index == 0 %}
+            include {{trait_call.receiver}}
+          {% end %}
+          include {{trait_call.args[0]}}
+        {% end %}
+      {% else %}
+        {% raise "Unexpected!" %}
       {% end %}
-      include {{trait_call.args[0]}}
     {% end %}
+
+    
 
     macro finished
       # Create a list of all the traits and if they have been enabled or not
       @%traits_enabled : Hash(String, Bool) = {
-        {% for trait_call, index in linearized %}
-        {% if index == 0 %}
-        {{"#{trait_call.receiver}"}} => true,
-        {% end %}
-        {{"#{trait_call.args[0]}"}} => true,
+        {% for trait in traits %}
+          {% if trait.is_a?(Call) %} # Trait is a union
+            {% 
+              # First we have to unroll the Call stack so we can start at the top, instead of the bottom.
+              root = trait
+              linearized = [] of Call
+              stack = [nil]
+              stack.each do |_| # (While)
+                stack << nil # (Seed the next loop)
+                if root.is_a?(Call)
+                  raise "Unexpected!" unless root.name == "|"
+                  if root.receiver && !root.receiver.is_a?(Path)
+                    linearized.unshift root
+                    root = root.receiver
+                  else
+                    linearized.unshift root
+
+                    stack.clear # (Break) We are at some root
+                  end
+                else
+                  raise "Found #{root.class_name} - #{root}, expected Call"
+                  stack.clear
+                end
+              end
+            %}
+            {% for trait_call, index in linearized %}
+              {% if index == 0 %}
+                {{"#{trait_call.receiver}"}} => true,
+              {% end %}
+              {{"#{trait_call.args[0]}"}} => true,
+            {% end %}
+          {% else %} # Trait is a path, not a union
+            {{"#{trait}"}} => true,
+          {% end %}
         {% end %}
       } of String => Bool
 
@@ -143,79 +182,61 @@ module Helix
       end
 
       def update
-        {% 
-          # Determines if the tokenizer should be changed to collecting a wait group
-          waitgroup_mode = false 
-          waitgroup_traits = [] of Path
-        %}
+        {% for trait in traits %}
 
-        {% for trait_call, index in linearized %}
-          {% 
-            # if the current call is the << (shovel) operator shovel the trait into a waitgroup and turn on wait group mode
-          %}
-          {% if trait_call.name == "<<" && !waitgroup_mode %}
-             {% 
-              waitgroup_mode = true
-              # Since we are starting the waitgroup we need to get the first part of the shovel
-              # Have to treat index 0 special because it's reciever is not an Expressions but a Path
-              if index == 0
-                waitgroup_traits << trait_call.receiver 
-                waitgroup_traits << trait_call.args[0]
-              else
-                waitgroup_traits << trait_call.receiver.args[0]
-                waitgroup_traits << trait_call.args[0]
+          {% if trait.is_a?(Call) %} # Trait is a union
+            {% 
+              # First we have to unroll the Call stack so we can start at the top, instead of the bottom.
+              root = trait
+              linearized = [] of Call
+              stack = [nil]
+              stack.each do |_| # (While)
+                stack << nil # (Seed the next loop)
+                if root.is_a?(Call)
+                  raise "Unexpected!" unless root.name == "|"
+                  if root.receiver && !root.receiver.is_a?(Path)
+                    linearized.unshift root
+                    root = root.receiver
+                  else
+                    linearized.unshift root
+
+                    stack.clear # (Break) We are at some root
+                  end
+                else
+                  raise "Found #{root.class_name} - #{root}, expected Call"
+                  stack.clear
+                end
               end
-             %}
-          {% 
-            # If it is in waitgroup mode and we are still shovelling into a waitgroup, just shovel
-          %}
-          {% elsif trait_call.name == "<<" && waitgroup_mode %}
-            {% waitgroup_traits << trait_call.args[0] %}
-          {% 
-            # We are in a waitgroup but now we hit the forward shovel so its time to stop and output the waitgroup
-          %}
-          {% elsif waitgroup_mode && trait_call.name == ">>" %}
-            {% waitgroup_mode = false %}
-            
-            %waitgroup = WaitGroup.new({{waitgroup_traits.size}})
+            %}
 
-            # Flush the traits into a waitgroup
-            {% for trait in waitgroup_traits %}
+            %waitgroup = WaitGroup.new({{linearized.size + 1}})
+
+            {% for trait_call, index in linearized %}
+              {% if index == 0 %}
+                spawn do 
+                  if @%traits_enabled[{{"#{trait_call.receiver}"}}]?
+                    ::Helix::Traits.export_code({{trait_call.receiver}}, {{@type}})
+                  end
+                ensure
+                  %waitgroup.done
+                end
+              {% end %}
               spawn do 
-                if @%traits_enabled[{{"#{trait}"}}]?
-                  ::Helix::Traits.export_code({{trait}}, {{@type}})
+                if @%traits_enabled[{{"#{trait_call.args[0]}"}}]?
+                  ::Helix::Traits.export_code({{trait_call.args[0]}}, {{@type}})
                 end
               ensure
                 %waitgroup.done
               end
+
             {% end %}
 
-          
-            puts "Waiting for #{{{waitgroup_traits.map(&.stringify)}}}"
             %waitgroup.wait
-            {% waitgroup_traits.clear %}
-
-            {% if (index + 1 != linearized.size && linearized[index + 1].name != "<<") || (index + 1 == linearized.size) %}
-              if @%traits_enabled[{{"#{trait_call.args[0]}"}}]?
-                ::Helix::Traits.export_code({{trait_call.args[0]}}, {{@type}})
-              end
-              {% end %}
-          {% elsif trait_call.name == ">>" %}
-            {% if index == 0 %}
-              if @%traits_enabled[{{"#{trait_call.receiver}"}}]?
-                ::Helix::Traits.export_code({{trait_call.receiver}}, {{@type}})
-              end
-            {% end %}
-
-            {% if index + 1 != linearized.size && linearized[index + 1].name != "<<" %}
-              if @%traits_enabled[{{"#{trait_call.args[0]}"}}]?
-                ::Helix::Traits.export_code({{trait_call.args[0]}}, {{@type}})
-              end
-              {% end %}
           {% else %}
-            {% raise "invalid token #{trait_call.name}" %}
+            if @%traits_enabled[{{"#{trait}"}}]?
+              ::Helix::Traits.export_code({{trait}}, {{@type}})
+            end
           {% end %}
-
         {% end %}
       end
     end
