@@ -1,16 +1,15 @@
 require "./helix"
 
-include Helix
+include Helix 
 
-gene Position do
-  property x : Float32 = 0.0_f32
-  property y : Float32 = 0.0_f32
-end
+gene Position,
+  x : Float32 = 0.0_f32,
+  y : Float32 = 0.0_f32
 
-gene Velocity do
-  property vx : Float32 = 0.0_f32
-  property vy : Float32 = 0.0_f32
-end
+gene Velocity,
+  vx : Float32 = 0.0_f32,
+  vy : Float32 = 0.0_f32
+
 
 trait(Position::Move, Position, Velocity) do |me|
   me.x += me.vx

@@ -1,14 +1,9 @@
 abstract class Helix::Species
-  def update
-  end
+  abstract def update
 
-  def enable(trait : Class)
-    raise "Cannot enable #{trait} because it wasn't in #{self.class}"
-  end
+  abstract def enable(trait : Class)
 
-  def disable(trait : Class)
-    raise "Cannot disable #{trait} because it wasn't in #{self.class}"
-  end
+  abstract def disable(trait : Class)
 
   macro finished
     {% for gene in Genes.ancestors %}

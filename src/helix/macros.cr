@@ -1,6 +1,21 @@
 require "wait_group"
 
 module Helix
+  annotation InstanceVariables
+  end
+
+  module Genes
+    macro finished
+      {%
+        @type.ancestors.each_with_index do |g1, index|
+          if index+1 != @type.ancestors.size && g1.annotation(InstanceVariables).args.any? {|i1| @type.ancestors[index+1..].any? {|g2| g2.annotation(InstanceVariables).args.any? {|i2| i1 == i2}}}
+            raise "2 Genes cannot have the same instance variables :( #{g1}"
+          end
+        end
+      %}
+    end
+  end
+
   module Traits
     macro export_code(trait, type)
       {% 
@@ -18,16 +33,31 @@ module Helix
   end
   
   # Creates a new gene. Genes are the building blocks of Speciess, Genes should hold pure data and associated functions.
-  macro gene(name, &block)
+  macro gene(name, *vars)
+    {%
+      var_names = vars.map do |v|
+        if v.is_a?(TypeDeclaration)
+          v.var
+        elsif v.is_a?(Assign)
+          v.target
+        else
+          raise "#{v.class_name} type is not expected in #{v}"
+        end
+      end
+    %}
+
+    @[InstanceVariables({{var_names.splat}})]
     module {{name}}
-      {% if block.is_a?(Block) %}
-        {{block.body}}
+      {% for var in vars %}
+        property {{var}}
       {% end %}
 
       def has_{{name.id.split("::").join("_").underscore.id}}? : Bool
         true
       end
     end
+
+    {% debug %}
 
     module ::Helix::Genes
       include {{name}}
@@ -209,21 +239,25 @@ module Helix
               end
             %}
 
+            {% wait_group_traits = [linearized[0].receiver] %}
+            {% wait_group_traits += linearized.map(&.args[0]) %}
+
             %waitgroup = WaitGroup.new({{linearized.size + 1}})
 
-            {% for trait_call, index in linearized %}
-              {% if index == 0 %}
-                spawn do 
-                  if @%traits_enabled[{{"#{trait_call.receiver}"}}]?
-                    ::Helix::Traits.export_code({{trait_call.receiver}}, {{@type}})
-                  end
-                ensure
-                  %waitgroup.done
-                end
+            {% for trait, index in wait_group_traits %}
+              {% puts "Doing #{trait}, #{index} in #{wait_group_traits}" %}
+              {% if index != wait_group_traits.size-1 %}
+                {% 
+                  conflict = parse_type("#{trait}::Genes").resolve.ancestors.any?  do |g1| 
+                    parse_type("#{wait_group_traits[index+1..]}::Genes").resolve.ancestors.any? {|g2| g1 == g2}
+                  end  
+
+                  raise "Can't modify multiple genes at the same time!" if conflict
+                %}
               {% end %}
               spawn do 
-                if @%traits_enabled[{{"#{trait_call.args[0]}"}}]?
-                  ::Helix::Traits.export_code({{trait_call.args[0]}}, {{@type}})
+                if @%traits_enabled[{{"#{trait}"}}]?
+                  ::Helix::Traits.export_code({{trait}}, {{@type}})
                 end
               ensure
                 %waitgroup.done
