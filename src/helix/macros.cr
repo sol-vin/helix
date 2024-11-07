@@ -57,8 +57,6 @@ module Helix
       end
     end
 
-    {% debug %}
-
     module ::Helix::Genes
       include {{name}}
     end
@@ -245,14 +243,16 @@ module Helix
             %waitgroup = WaitGroup.new({{linearized.size + 1}})
 
             {% for trait, index in wait_group_traits %}
-              {% puts "Doing #{trait}, #{index} in #{wait_group_traits}" %}
-              {% if index != wait_group_traits.size-1 %}
+              {% if index+1 != wait_group_traits.size %}
                 {% 
-                  conflict = parse_type("#{trait}::Genes").resolve.ancestors.any?  do |g1| 
-                    parse_type("#{wait_group_traits[index+1..]}::Genes").resolve.ancestors.any? {|g2| g1 == g2}
+                  parse_type("#{trait}::Genes").resolve.ancestors.any?  do |g1| 
+                    wait_group_traits[index+1..].any? do |trait2|
+                      parse_type("#{trait2}::Genes").resolve.ancestors.any? do |g2| 
+                        raise "Can't modify multiple genes at the same time! #{trait} and #{trait2} clash and have the same gene: #{g1}" if g1 == g2
+                        g1 == g2
+                      end
+                    end
                   end  
-
-                  raise "Can't modify multiple genes at the same time!" if conflict
                 %}
               {% end %}
               spawn do 

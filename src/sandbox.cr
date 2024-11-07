@@ -21,11 +21,11 @@ trait(Enact::Physics, Position, Velocity) do |_|
   puts "EnactPhysics trait ran!"
 end
 
-trait(A) do |_|
+trait(A, Position) do |_|
   puts "A trait ran!"
 end
 
-trait(B) do |_|
+trait(B, Position) do |_|
   puts "B trait ran!"
 end
 
