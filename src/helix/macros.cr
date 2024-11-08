@@ -1,10 +1,36 @@
 require "wait_group"
 
 module Helix
+  abstract class Species
+    abstract def update
+  
+    abstract def enable(trait : Class)
+  
+    abstract def disable(trait : Class)
+  
+    macro finished
+      {% for gene in Genes.ancestors %}
+      def has_{{gene.id.split("::").join("_").underscore.id}}? : Bool
+        false
+      end
+      {% end %}
+  
+      {% for trait in Traits.ancestors %}
+      def can_{{trait.id.split("::").join("_").underscore.id}}? : Bool
+        false
+      end
+      {% end %}
+    end
+  end
+
   annotation InstanceVariables
   end
 
   module Genes
+    macro included
+      raise "This module should never be included. :("
+    end
+
     macro finished
       {%
         @type.ancestors.each_with_index do |g1, index|
@@ -46,7 +72,7 @@ module Helix
       end
     %}
 
-    @[InstanceVariables({{var_names.splat}})]
+    @[::Helix::InstanceVariables({{var_names.splat}})]
     module {{name}}
       {% for var in vars %}
         property {{var}}

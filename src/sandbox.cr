@@ -10,7 +10,6 @@ gene Velocity,
   vx : Float32 = 0.0_f32,
   vy : Float32 = 0.0_f32
 
-
 trait(Position::Move, Position, Velocity) do |me|
   me.x += me.vx
   me.y += me.vy
@@ -25,7 +24,7 @@ trait(A, Position) do |_|
   puts "A trait ran!"
 end
 
-trait(B, Position) do |_|
+trait(B) do |_|
   puts "B trait ran!"
 end
 
@@ -62,7 +61,7 @@ class MySpecies < Species
   inherit Velocity
 
   give Position::Move,
-    A | B | C,
+    A | B | C, # These run in a WaitGroup
     D | E,
     F | G,
     H

@@ -1,12 +1,15 @@
-macro signal(name, a, b, &block)
-  {% 
-    puts a, b 
-    puts block.body 
-  %}
+module A
+  @myvar = 100 # Error: instance variable '@myvar' of C must be Int32, not (Float64 | Int32)
+end 
+
+module B
+  @myvar = 100.0
+end 
+
+class C
+  include A
+  include B
+  @myvar = "One hundred"
 end
 
-signal DamageCheck, Bullet | Rectangle, Enemy | Rectangle | Health do |bullet, enemy|
-  if bullet.intersects?(enemy)
-    enemy.damage(bullet.damage)
-  end
-end
+puts C.new.@myvar
