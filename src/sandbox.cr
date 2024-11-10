@@ -13,8 +13,8 @@ trait(Position::Move, Position, Velocity) do |me|
 end
 
 class MySpecies < Species
-  inherit Rectangle
-  inherit Velocity
+  include Rectangle
+  include Velocity
 
   give Position::Move
 end

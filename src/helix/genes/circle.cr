@@ -5,8 +5,8 @@ Helix.gene Helix::Circle::Bounds,
 Helix.gene Helix::Circle
 
 module Helix::Circle
-  include Position
-  include Bounds
+  include Helix::Position
+  include Helix::Circle::Bounds
 
   def self.draw(x, y, radius, tint : Color = Color::RGBA::WHITE, fill = false)
     if fill

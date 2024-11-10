@@ -15,7 +15,7 @@ module Helix::Rectangle
   end
 
   def self.invalid?(r : Rectangle)
-    r.width <= 0 || r.height <= 0
+    invalid?(r.width, r.height)
   end
 
   def self.intersects?(x1, y1, w1, h1, x2, y2, w2, h2)
@@ -27,6 +27,10 @@ module Helix::Rectangle
       a_max.x > b_min.x &&
       a_min.y < b_max.y &&
       a_max.y > b_min.y
+  end
+
+  def self.intersects?(r1 : Rectangle, r2 : Rectangle)
+    Rectangle.intersects?(r1.x, r1.y, r1.width, r1.height, r2.x, r2.y, r2.width, r2.height)
   end
 
   def self.contains?(x1, y1, w1, h1, x2, y2, w2, h2)
