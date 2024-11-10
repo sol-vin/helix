@@ -9,13 +9,13 @@ module Helix
     abstract def disable(trait : Class)
   
     macro finished
-      {% for gene in Genes.ancestors %}
+      {% for gene in Genes.ancestors.uniq %}
       def has_{{gene.id.split("::").join("_").underscore.id}}? : Bool
         false
       end
       {% end %}
   
-      {% for trait in Traits.ancestors %}
+      {% for trait in Traits.ancestors.uniq %}
       def can_{{trait.id.split("::").join("_").underscore.id}}? : Bool
         false
       end
@@ -33,8 +33,9 @@ module Helix
 
     macro finished
       {%
-        @type.ancestors.each_with_index do |g1, index|
-          if index+1 != @type.ancestors.size && g1.annotation(InstanceVariables).args.any? {|i1| @type.ancestors[index+1..].any? {|g2| g2.annotation(InstanceVariables).args.any? {|i2| i1 == i2}}}
+        type_ancestors = @type.ancestors.uniq
+        type_ancestors.each_with_index do |g1, index|
+          if index+1 != type_ancestors.size && g1.annotation(InstanceVariables).args.any? {|i1| type_ancestors[index+1..].any? {|g2| g2.annotation(InstanceVariables).args.any? {|i2| i1 == i2}}}
             raise "2 Genes cannot have the same instance variables :( #{g1}"
           end
         end
@@ -45,14 +46,13 @@ module Helix
   module Traits
     macro export_code(trait, type)
       {% 
-        parse_type("#{trait}::Genes").resolve.ancestors.select {|g| ::Helix::Genes.ancestors.any? {|g2| g == g2}}.each do |gene| 
+        parse_type("#{trait}::Genes").resolve.ancestors.uniq.select {|g| ::Helix::Genes.ancestors.uniq.any? {|g2| g == g2}}.each do |gene| 
           raise "Trait #{trait} cannot be added to #{type} without the #{gene} gene" unless type.resolve < gene 
         end 
       %}
-      {% puts @type %}
       {% run_method = parse_type("#{trait}::Exec").resolve.methods.find {|m| m.name == "run"} %}
       {% if parse_type("#{trait}::Type").resolve? %}
-        {{parse_type("#{trait}::Exec").resolve.constant("ARG_NAME").id}} = self.as({{trait}}::Type)
+        {{parse_type("#{trait}::Exec").resolve.constant("ARG_NAME").id}} = self.as({{trait}}::Genes)
       {% end %}
       {{run_method.body}}
     end
@@ -91,7 +91,6 @@ module Helix
       include {{name}}
     end
 
-    {% debug %}
   end
 
   # Allows a Species to inherit a gene. 
@@ -105,7 +104,7 @@ module Helix
   # Genes used. You cannot use the same Gene more than once.
   macro trait(name, *genes, &block)
     {% raise "Gene used more than once in #{genes}" if genes.uniq.size != genes.size %}
-    {% raise "Wrong number of arguments in trait block. You must include one argument (the species that has all these genes)" if block.args.size != 1 %}
+    {% raise "Wrong number of arguments in trait block. You must include zero or one argument (the species that has all these genes)" if block.args.size != 0 && block.args.size != 1 %}
     {% raise "Trait blocks cannot use splat. Sorry!" if block.splat_index %}
     module {{name}}
       def can_{{name.id.split("::").join("_").underscore.id}}? : Bool
@@ -119,7 +118,7 @@ module Helix
         {% end %}
       end
 
-      {% if !genes.empty? && block.args[0] != "_" %}
+      {% if !genes.empty? && block.args.size != 0 && block.args[0] != "_" %}
         alias Type = {{genes.join(" | ").id}}
       {% end %}
 
@@ -127,7 +126,7 @@ module Helix
       module Exec
         include Genes
 
-        ARG_NAME = {{block.args[0].stringify}}
+        ARG_NAME = {{(block.args.size != 0 ? block.args[0] : "_").stringify}}
         def run()
           {{block.body}}
         end
@@ -145,6 +144,7 @@ module Helix
     {% for trait in traits %}
       {% if trait.is_a?(Path) %}
         include {{trait}}
+        include {{trait}}::Genes
       {% elsif trait.is_a?(Call) %}
        {% 
           # First we have to unroll the Call stack so we can start at the top, instead of the bottom.
@@ -172,8 +172,11 @@ module Helix
         {% for trait_call, index in linearized %}
           {% if index == 0 %}
             include {{trait_call.receiver}}
+            include {{trait_call.receiver}}::Genes
           {% end %}
           include {{trait_call.args[0]}}
+          include {{trait_call.args[0]}}::Genes
+
         {% end %}
       {% else %}
         {% raise "Unexpected!" %}
@@ -275,15 +278,19 @@ module Helix
 
             {% for trait, index in wait_group_traits %}
               {% if index+1 != wait_group_traits.size %}
-                {% 
-                  parse_type("#{trait}::Genes").resolve.ancestors.any?  do |g1| 
-                    wait_group_traits[index+1..].any? do |trait2|
-                      parse_type("#{trait2}::Genes").resolve.ancestors.any? do |g2| 
-                        raise "Can't modify multiple genes at the same time! #{trait} and #{trait2} clash and have the same gene: #{g1}" if g1 == g2
-                        g1 == g2
+                {%
+                  if trait_genes =  parse_type("#{trait}::Genes").resolve?
+                    trait_genes.ancestors.uniq.any?  do |g1| 
+                      wait_group_traits[index+1..].any? do |trait2|
+                        if trait2_genes = parse_type("#{trait2}::Genes").resolve?
+                          trait2_genes.ancestors.uniq.any? do |g2| 
+                            raise "Can't modify multiple genes at the same time! #{trait} and #{trait2} clash and have the same gene: #{g1}" if g1 == g2
+                            g1 == g2
+                          end
+                        end
                       end
                     end
-                  end  
+                  end
                 %}
               {% end %}
               spawn do 

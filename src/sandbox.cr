@@ -1,36 +1,22 @@
 require "./helix"
 
-include Helix 
-
-gene Position,
-  x : Float32 = 0.0_f32,
-  y : Float32 = 0.0_f32
+include Helix
 
 gene Velocity,
   vx : Float32 = 0.0_f32,
-  vy : Float32 = 0.0_f32 
+  vy : Float32 = 0.0_f32
 
 trait(Position::Move, Position, Velocity) do |me|
   me.x += me.vx
   me.y += me.vy
-  puts "Position::Move trait ran!"
-end
-
-trait(Enact::Physics, Position, Velocity) do |_|
-  puts "EnactPhysics trait ran!"
+  puts "Trait Position::Move ran!"
 end
 
 class MySpecies < Species
-  inherit Position
+  inherit Rectangle
   inherit Velocity
 
-  give Position::Move,
-    Physics::Enact,
-    # Other traits, they just don't exist so this will throw errors
-    A | B | C, # These run in a WaitGroup
-    D | E,
-    F | G,
-    H
+  give Position::Move
 end
 
 a = MySpecies.new
@@ -41,6 +27,7 @@ a.vy = 10.0_f32
 a.update
 puts a.x
 puts a.y
+
 # puts "Disabled MovePosition"
 # a.disable(Position::Move)
 # a.update
