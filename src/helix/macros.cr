@@ -49,7 +49,7 @@ module Helix
           raise "Trait #{trait} cannot be added to #{type} without the #{gene} gene" unless type.resolve < gene 
         end 
       %}
-
+      {% puts @type %}
       {% run_method = parse_type("#{trait}::Exec").resolve.methods.find {|m| m.name == "run"} %}
       {% if parse_type("#{trait}::Type").resolve? %}
         {{parse_type("#{trait}::Exec").resolve.constant("ARG_NAME").id}} = self.as({{trait}}::Type)
@@ -58,8 +58,8 @@ module Helix
     end
   end
   
-  # Creates a new gene. Genes are the building blocks of Speciess, Genes should hold pure data and associated functions.
-  macro gene(name, *vars)
+  # Creates a new gene. Genes are the building blocks of Species, Genes should hold pure data and associated functions.
+  macro gene(name, *vars, &block)
     {%
       var_names = vars.map do |v|
         if v.is_a?(TypeDeclaration)
@@ -81,11 +81,17 @@ module Helix
       def has_{{name.id.split("::").join("_").underscore.id}}? : Bool
         true
       end
+
+      {% if block %}
+        {{block.body}}
+      {% end %}
     end
 
     module ::Helix::Genes
       include {{name}}
     end
+
+    {% debug %}
   end
 
   # Allows a Species to inherit a gene. 
@@ -237,7 +243,6 @@ module Helix
 
       def update
         {% for trait in traits %}
-
           {% if trait.is_a?(Call) %} # Trait is a union
             {% 
               # First we have to unroll the Call stack so we can start at the top, instead of the bottom.

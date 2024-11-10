@@ -11,6 +11,11 @@ targets:
     main: src/sandbox.cr
   sandbox2:
     main: src/sandbox2.cr
+
+dependencies:
+  raylib-cr:
+    github: sol-vin/raylib-cr
+    branch: master
 crystal: '>= 1.13.2'
 
 license: MIT
