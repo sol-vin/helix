@@ -93,11 +93,11 @@ module Helix
 
   end
 
-  # Allows a Species to inherit a gene. 
-  macro inherit(name)
-    include {{name}}
-    \{% raise "Cannot add a gene to something that isn't a Module or a Species" unless @type < Species || @type.module? %}
-  end
+  # # Allows a Species to inherit a gene. 
+  # macro inherit(name)
+  #   include {{name}}
+  #   raise "Cannot add a gene to something that isn't a Module or a Species" unless @type < Species || @type.module?
+  # end
 
   # Creates a Trait that can be used to add functionality at the Species level. This takes the name of the trait you'd like to create,
   # as well as a list of Gene types that will be used. The block contains the code to run, and must take the same number of arguments as

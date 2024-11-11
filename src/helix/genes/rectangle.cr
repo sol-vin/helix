@@ -2,13 +2,25 @@ Helix.gene Rectangle::Bounds,
   width : Float32 = 0.0_f32,
   height : Float32 = 0.0_f32
 
-Helix.gene Rectangle
-
-module Rectangle
+Helix.gene Rectangle do
   include Position
   include Bounds
 
   alias Points = StaticArray(Raylib::Vector2, 4)
+
+  def self.get_bounding_box(points : Points)
+    min_x = points.map(&.x).min
+    min_y = points.map(&.y).min
+    max_x = points.map(&.x).max
+    max_y = points.map(&.y).max
+
+    Rectangle.new(
+      x: min_x,
+      y: min_y,
+      width: max_x - min_x,
+      height: max_y - min_y
+    )
+  end
 
   def self.invalid?(width, height)
     width <= 0 || height <= 0

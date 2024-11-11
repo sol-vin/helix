@@ -1,9 +1,7 @@
 Helix.gene Circle::Bounds,
   radius : Float32 = 0.0_f32
 
-Helix.gene Circle
-
-module Circle
+Helix.gene Circle do
   include Position
   include Bounds
 

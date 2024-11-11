@@ -6,11 +6,26 @@ gene Velocity,
   vx : Float32 = 0.0_f32,
   vy : Float32 = 0.0_f32
 
+gene Bullet,
+  owner : UUID = StaticArray(UInt8, 16).new(0_u8),
+  damage : Int32 = 10
+
+gene Enemy,
+  hp : Int32 = 100
+
+gene Player
+
 trait(Position::Move, Position, Velocity) do |me|
   me.x += me.vx
   me.y += me.vy
   puts "Trait Position::Move ran!"
 end
+
+# signal(Bullet::Check, Bullet | Rectangle, Enemy | Rectangle) do |bullet, enemy|
+#   if Rectangle.intersects?(bullet, enemy)
+#     enemy.hp -= bullet.damage
+#   end
+# end
 
 class MySpecies < Species
   include Rectangle
