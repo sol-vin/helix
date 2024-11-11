@@ -1,20 +1,25 @@
 module A
+  def a
+    puts "A"
+  end
 end
 
 module B
-end 
+  def b
+    puts "B"
+  end
+end
 
-module C
+alias AB = A | B
+
+class C
   include A
   include B
 end
 
-class D
-  include A
-  include B
-  include C
+def test(ab : AB)
+  ab.a
+  ab.b
 end
 
-macro finished
-  {% puts D.ancestors %}
-end
+C.new.as(AB).a

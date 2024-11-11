@@ -57,3 +57,21 @@ puts a.y
 puts a.as(Species).has_position?
 puts a.as(Species).has_velocity?
 puts a.as(Species).can_position_move?
+
+g2 = Helix::Group.new(max_size: 3)
+g2 << a
+
+g2.recycle? { puts "New item made (MySpecies - #{g2.size})";MySpecies.new }
+g2.each(&.kill)
+puts "Recycling"
+g2.recycle? { puts "New item made (MySpecies - #{g2.size})";MySpecies.new }
+g2.recycle? { puts "New item made (MySpecies - #{g2.size})";MySpecies.new }
+
+puts "Done Recycling"
+g2.recycle? { puts "New item made (MySpecies - #{g2.size})";MySpecies.new }
+g2.recycle? { puts "New item made (MySpecies - #{g2.size})";MySpecies.new }
+g2.recycle? { puts "New item made (MySpecies - #{g2.size})";MySpecies.new }
+g2.recycle? { puts "New item made (MySpecies - #{g2.size})";MySpecies.new }
+
+
+# g3 = Helix::SpecializedGroup(Int32).new

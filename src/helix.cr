@@ -12,6 +12,7 @@ require "./helix/data/**"
 
 require "./helix/macros"
 require "./helix/species"
+require "./helix/group"
 
 require "./helix/genes/position"
 require "./helix/genes/rotation"

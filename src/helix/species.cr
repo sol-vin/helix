@@ -1,17 +1,22 @@
 abstract class Helix::Species
   getter id : UUID
 
-  getter? destroyed = false
+  getter? alive = true
 
   def initialize
     @id = UUID.random
   end
 
-  def destroy
-    unless @destroyed
-      @destroyed = true
-      #emit Destroyed, self
-    end
+  def dead?
+    !@alive
+  end
+
+  def kill
+    @alive = false
+  end
+
+  def revive
+    @alive = true
   end
 
   def_equals_and_hash @id, @id.hash
