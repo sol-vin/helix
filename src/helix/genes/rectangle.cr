@@ -1,10 +1,10 @@
-Helix.gene Helix::Rectangle::Bounds,
+Helix.gene Rectangle::Bounds,
   width : Float32 = 0.0_f32,
   height : Float32 = 0.0_f32
 
-Helix.gene Helix::Rectangle
+Helix.gene Rectangle
 
-module Helix::Rectangle
+module Rectangle
   include Position
   include Bounds
 
@@ -45,7 +45,11 @@ module Helix::Rectangle
     x1 < x2 && y1 < y2 && x1 + w1 > x2 && y1 + w1 > y2
   end
 
-  def self.contains?(r1 : Rectangle, r2 : Rectangle)
+  def self.contains?(r1 : Rectangle, p1 : Rectangle)
+    Rectangle.contains?(r1.x, r1.y, r1.width, r1.height, p1.x, p1.y)
+  end
+
+  def self.contains?(r : Rectangle, p : Position)
     Rectangle.contains?(r1.x, r1.y, r1.width, r1.height, r2.x, r2.y, r2.width, r2.height)
   end
 

@@ -1,12 +1,11 @@
-Helix.gene Helix::Circle::Bounds,
+Helix.gene Circle::Bounds,
   radius : Float32 = 0.0_f32
 
+Helix.gene Circle
 
-Helix.gene Helix::Circle
-
-module Helix::Circle
-  include Helix::Position
-  include Helix::Circle::Bounds
+module Circle
+  include Position
+  include Bounds
 
   def self.draw(x, y, radius, tint : Color = Color::RGBA::WHITE, fill = false)
     if fill

@@ -143,8 +143,8 @@ module Helix
     # Include all the traits.
     {% for trait in traits %}
       {% if trait.is_a?(Path) %}
-        include {{trait}}
-        include {{trait}}::Genes
+        include {{trait.resolve.name}}
+        include {{trait.resolve.name}}::Genes
       {% elsif trait.is_a?(Call) %}
        {% 
           # First we have to unroll the Call stack so we can start at the top, instead of the bottom.
@@ -171,11 +171,11 @@ module Helix
         %}
         {% for trait_call, index in linearized %}
           {% if index == 0 %}
-            include {{trait_call.receiver}}
-            include {{trait_call.receiver}}::Genes
+            include {{trait_call.receiver.resolve.name}}
+            include {{trait_call.receiver.resolve.name}}::Genes
           {% end %}
-          include {{trait_call.args[0]}}
-          include {{trait_call.args[0]}}::Genes
+          include {{trait_call.args[0].resolve.name}}
+          include {{trait_call.args[0].resolve.name}}::Genes
 
         {% end %}
       {% else %}
@@ -215,12 +215,12 @@ module Helix
             %}
             {% for trait_call, index in linearized %}
               {% if index == 0 %}
-                {{"#{trait_call.receiver}"}} => true,
+                {{"#{trait_call.receiver.resolve.name}"}} => true,
               {% end %}
-              {{"#{trait_call.args[0]}"}} => true,
+              {{"#{trait_call.args[0].resolve.name}"}} => true,
             {% end %}
           {% else %} # Trait is a path, not a union
-            {{"#{trait}"}} => true,
+            {{"#{trait.resolve.name}"}} => true,
           {% end %}
         {% end %}
       } of String => Bool
@@ -229,16 +229,16 @@ module Helix
         # Override the enable and disable method with our actual traits_enabled hash
       %}
       def enable(trait : Class)
-        if @%traits_enabled.has_key?(trait.to_s)
-          @%traits_enabled[trait.to_s] = true
+        if @%traits_enabled.has_key?(trait.name)
+          @%traits_enabled[trait.name] = true
         else
           raise "Cannot enable #{trait} because it wasn't in #{self.class}"
         end
       end
 
       def disable(trait : Class)
-        if @%traits_enabled.has_key?(trait.to_s)
-          @%traits_enabled[trait.to_s] = false
+        if @%traits_enabled.has_key?(trait.name)
+          @%traits_enabled[trait.name] = false
         else
           raise "Cannot disable #{trait} because it wasn't in #{self.class}"
         end
@@ -279,12 +279,12 @@ module Helix
             {% for trait, index in wait_group_traits %}
               {% if index+1 != wait_group_traits.size %}
                 {%
-                  if trait_genes =  parse_type("#{trait}::Genes").resolve?
+                  if trait_genes =  parse_type("#{trait.resolve.name}::Genes").resolve?
                     trait_genes.ancestors.uniq.any?  do |g1| 
                       wait_group_traits[index+1..].any? do |trait2|
-                        if trait2_genes = parse_type("#{trait2}::Genes").resolve?
+                        if trait2_genes = parse_type("#{trait2.resolve.name}::Genes").resolve?
                           trait2_genes.ancestors.uniq.any? do |g2| 
-                            raise "Can't modify multiple genes at the same time! #{trait} and #{trait2} clash and have the same gene: #{g1}" if g1 == g2
+                            raise "Can't modify multiple genes at the same time! #{trait.resolve.name} and #{trait2.resolve.name} clash and have the same gene: #{g1}" if g1 == g2
                             g1 == g2
                           end
                         end
@@ -294,7 +294,7 @@ module Helix
                 %}
               {% end %}
               spawn do 
-                if @%traits_enabled[{{"#{trait}"}}]?
+                if @%traits_enabled[{{"#{trait.resolve.name}"}}]?
                   ::Helix::Traits.export_code({{trait}}, {{@type}})
                 end
               ensure
@@ -305,7 +305,7 @@ module Helix
 
             %waitgroup.wait
           {% else %}
-            if @%traits_enabled[{{"#{trait}"}}]?
+            if @%traits_enabled[{{"#{trait.resolve.name}"}}]?
               ::Helix::Traits.export_code({{trait}}, {{@type}})
             end
           {% end %}

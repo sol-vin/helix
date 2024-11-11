@@ -16,6 +16,7 @@ dependencies:
   raylib-cr:
     github: sol-vin/raylib-cr
     branch: master
+
 crystal: '>= 1.13.2'
 
 license: MIT
