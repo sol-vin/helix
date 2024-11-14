@@ -1,74 +1,35 @@
-macro amalgam(name, *types)
-  module {{name}}
-    {% for type in types %}
-    include {{type}}
-    {% end %}
-  end
+# signal(Bullet::Check, Bullet | Rectangle, Enemy | Rectangle) do |bullet, enemy|
+#   if Rectangle.intersects?(bullet, enemy)
+#     enemy.hp -= bullet.damage
+#   end
+# end
+# 
 
-  module Amalgams
-    include {{name}}
-  end
-end
+# module Bullet::Check
+#   module Type1
+#     include Bullet
+#     include Rectangle
+#   end
 
-module AllowAmalgam
-  macro finished
-    {% for includer in @type.includers %}
-      {% for amalgam in Amalgams.ancestors %}
-        # We have all the types requires for the amalgam in includer?
-        {% if (amalgam.ancestors - includer.ancestors).empty? %}
-          # Assume its a class for simplicity but we should check for struct, enum, etc.
-          class ::{{includer}}
-            include {{amalgam}}
-          end
-        {% end %}
-      {% end %}
-    {% end %}
-  end
-end
+#   module Type2
+#     include Enemy
+#     include Rectangle
+#   end
 
-# Main
+#   def self.[](bullet : Type1, enemy : Type2)
+#     if Rectangle.intersects?(bullet, enemy)
+#       enemy.hp -= bullet.damage
+#     end
+#   end
+# end
 
-module A
-  property a : Char = 'a'
-end
+# module ::Helix::Signals
+#   include Bullet::Check
+# end
 
-module B
-  property b : Char = 'b'
-end
+# Bullet::Check[item1, item2]
 
-module C
-  property c : Char = 'c'
-end
-
-amalgam(ABC, A, B, C)
-
-class Item1
-  include AllowAmalgam
-  include A
-  include B
-  include C
-end
-
-class Item2
-  include AllowAmalgam
-  include A
-  include B
-  include C
-end
-
-class Item3
-  include A
-  include B
-  include C
-end
-
-def only_amalgams(abc : ABC)
-  puts "#{abc.a}#{abc.b}#{abc.c}"
-end
-
-only_amalgams(Item1.new)
-only_amalgams(Item2.new)
-# only_amalgams(Item3.new) # => Error
+{% puts parse_type("Int32 | Float32").types %}
 
 
 

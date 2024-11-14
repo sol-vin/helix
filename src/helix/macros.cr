@@ -57,6 +57,89 @@ module Helix
       {{run_method.body}}
     end
   end
+
+  module Signals
+  end
+
+  macro signal(name, *types, &block)
+    {% raise "Wrong number of arguments in signal block. You must include the same number of arguments as types" if block.args.size != types.size %}
+    module {{name}}
+      TOTAL_TYPES = {{types.size}}
+
+
+      {% for type, index in types %}
+      module Type{{index}}
+        {% if type.is_a?(Call) %}
+          {% 
+            # First we have to unroll the Call stack so we can start at the top, instead of the bottom.
+            root = type
+            linearized = [] of Call
+            stack = [nil]
+            stack.each do |_| # (While)
+              stack << nil # (Seed the next loop)
+              if root.is_a?(Call)
+                raise "Unexpected!" unless root.name == "|"
+                if root.receiver && !root.receiver.is_a?(Path)
+                  linearized.unshift root
+                  root = root.receiver
+                else
+                  linearized.unshift root
+
+                  stack.clear # (Break) We are at some root
+                end
+              else
+                raise "Found #{root.class_name} - #{root}, expected Call"
+                stack.clear
+              end
+            end
+          %}
+          
+          {% for call, index in linearized %}
+            {% if index == 0 %}
+              include {{call.receiver.resolve.name}}
+            {% end %}
+            include {{call.args[0].resolve.name}}
+          {% end %}
+        {% else %}
+          include {{type}}
+        {% end %}
+      end
+      {% end %}
+
+      def self.[]({{block.args.map_with_index {|a, i| "#{a} : Type#{i}"}.join(",  ").id }})
+        {% raise "Must be a block body!" unless block %}
+        {{block.body}}
+      end
+    end
+
+    module ::Helix::Signals
+      include {{name}}
+    end
+  end
+
+  macro species(name, &block)
+    class {{name}} < ::Helix::Species
+      {% if block %}
+        {{block.body}}
+      {% end %}
+
+      macro finished
+        {% for signal in ::Helix::Signals.ancestors %}
+          {% for species in Species.subclasses %}
+            # We have all the types requires for the signal in species?
+            {% types_size = signal.constant("TOTAL_TYPES") %}
+            {% for i in (0...types_size)%}
+              {% if (species.ancestors - parse_type("#{signal}::Type#{i}").ancestors).empty? %}
+                class ::{{species}}
+                  include {{signal}}::Type{{i}}
+                end
+              {% end %}
+            {% end %}
+          {% end %}
+        {% end %}
+      end
+    end
+  end 
   
   # Creates a new gene. Genes are the building blocks of Species, Genes should hold pure data and associated functions.
   macro gene(name, *vars, &block)

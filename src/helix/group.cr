@@ -49,7 +49,8 @@ class Helix::SpecializedGroup(T)
   private def replace_first_dead?(item : T) : Bool
     @array.each_with_index do |o, i|
       if o.dead?
-        @array[i] = item
+        @array.delete(o)
+        @array << item
         return true
       end
     end
@@ -60,7 +61,8 @@ class Helix::SpecializedGroup(T)
   private def replace_first_dead?(&block : Proc(T)) : Bool
     @array.each_with_index do |o, i|
       if o.dead?
-        @array[i] = yield
+        @array.delete(o)
+        @array << yield
         return true
       end
     end
