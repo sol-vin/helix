@@ -65,9 +65,9 @@ g2.recycle? { puts "New item made (MySpecies - #{g2.size})";MySpecies.new }
 g2.each(&.kill)
 puts "Recycling"
 g2.recycle? { puts "New item made (MySpecies - #{g2.size})";MySpecies.new }
-g2.recycle? { puts "New item made (MySpecies - #{g2.size})";MySpecies.new }
-
 puts "Done Recycling"
+
+g2.recycle? { puts "New item made (MySpecies - #{g2.size})";MySpecies.new }
 g2.recycle? { puts "New item made (MySpecies - #{g2.size})";MySpecies.new }
 g2.recycle? { puts "New item made (MySpecies - #{g2.size})";MySpecies.new }
 g2.recycle? { puts "New item made (MySpecies - #{g2.size})";MySpecies.new }

@@ -49,11 +49,11 @@ Helix.gene Rectangle do
     contains?(Raylib::Vector2.new(x1, y1), Raylib::Vector2.new(x1 + w1, y1 + h1), Raylib::Vector2.new(x2, y2), Raylib::Vector2.new(x2 + w2, y2 + h2))
   end
 
-  def self.contains?(a_min, a_max, b_min, b_max)
+  def self.contains?(a_min : Position, a_max : Position, b_min : Position, b_max : Position)
     a_min.x < b_min.x && a_min.y < b_min.y && a_max.x > b_max.x && a_max.y > b_max.y
   end
 
-  def self.contains?(x1, y1, w1, h1, x2, y2)
+  def self.contains_point?(x1, y1, w1, h1, x2, y2)
     x1 < x2 && y1 < y2 && x1 + w1 > x2 && y1 + w1 > y2
   end
 
@@ -61,8 +61,8 @@ Helix.gene Rectangle do
     Rectangle.contains?(r1.x, r1.y, r1.width, r1.height, p1.x, p1.y)
   end
 
-  def self.contains?(r : Rectangle, p : Position)
-    Rectangle.contains?(r1.x, r1.y, r1.width, r1.height, r2.x, r2.y, r2.width, r2.height)
+  def self.contains_point?(r : Rectangle, pos : Position)
+    Rectangle.contains_point?(r.x, r.y, r.width, r.height, pos.x, pos.y)
   end
 
   def self.draw(x, y, width, height, tint : Color = Color::RGBA::WHITE, fill = false)

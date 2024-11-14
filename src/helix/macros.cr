@@ -72,12 +72,19 @@ module Helix
       end
     %}
 
+    {% 
+      # Tracks the ivars for later
+    %}
     @[::Helix::InstanceVariables({{var_names.splat}})]
     module {{name}}
       {% for var in vars %}
         property {{var}}
       {% end %}
 
+
+      {% 
+        # Overrides the one that will be in Species
+      %}
       def has_{{name.id.split("::").join("_").underscore.id}}? : Bool
         true
       end
@@ -87,6 +94,9 @@ module Helix
       {% end %}
     end
 
+    {% 
+      # Create a list of all the genes
+    %}
     module ::Helix::Genes
       include {{name}}
     end
