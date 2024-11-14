@@ -124,19 +124,15 @@ module Helix
       {% end %}
 
       macro finished
-        {% for signal in ::Helix::Signals.ancestors %}
-          {% for species in Species.subclasses %}
-            # We have all the types requires for the signal in species?
-            {% types_size = signal.constant("TOTAL_TYPES") %}
-            {% for i in (0...types_size)%}
-              {% if (species.ancestors - parse_type("#{signal}::Type#{i}").ancestors).empty? %}
-                class ::{{species}}
-                  include {{signal}}::Type{{i}}
-                end
-              {% end %}
-            {% end %}
-          {% end %}
-        {% end %}
+        \{% for signal in ::Helix::Signals.ancestors %}
+          # We have all the types requires for the signal in species?
+          \{% types_size = signal.constant("TOTAL_TYPES") %}
+          \{% for i in (0...types_size)%}
+            \{% if (parse_type("#{signal}::Type#{i}").resolve.ancestors - @type.ancestors).empty? %}
+              include \{{signal}}::Type\{{i}}
+            \{% end %}
+          \{% end %}
+        \{% end %}
       end
     end
   end 

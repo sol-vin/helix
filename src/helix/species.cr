@@ -21,11 +21,14 @@ abstract class Helix::Species
 
   def_equals_and_hash @id, @id.hash
 
-  abstract def update
+  def update
+  end
 
-  abstract def enable(trait : Class)
+  def enable(trait : Class)
+  end
 
-  abstract def disable(trait : Class)
+  def disable(trait : Class)
+  end
 
   macro finished
     {% for gene in Genes.ancestors %}
