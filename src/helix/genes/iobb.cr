@@ -40,12 +40,17 @@ Helix.gene IOBB do
     IOBB.get_points(r.x, r.y, r.width, r.height, rotation, origin)
   end
 
-  def self.draw(points : Points, color : Color = Color::RGBA::WHITE)
+  def self.draw(points : Points, color : Color = Color::RGBA::WHITE, fill = false)
     color = tint.to_raylib
-    Raylib.draw_line(points[0].x, points[0].y, points[1].x, points[1].y, color)
-    Raylib.draw_line(points[1].x, points[1].y, points[2].x, points[2].y, color)
-    Raylib.draw_line(points[2].x, points[2].y, points[3].x, points[3].y, color)
-    Raylib.draw_line(points[3].x, points[3].y, points[0].x, points[0].y, color)
+    if fill
+      Raylib.draw_triangle(points[0],  points[1],  points[2], color)
+      Raylib.draw_triangle(points[0],  points[2],  points[3], color)
+    else
+      Raylib.draw_line(points[0].x, points[0].y, points[1].x, points[1].y, color)
+      Raylib.draw_line(points[1].x, points[1].y, points[2].x, points[2].y, color)
+      Raylib.draw_line(points[2].x, points[2].y, points[3].x, points[3].y, color)
+      Raylib.draw_line(points[3].x, points[3].y, points[0].x, points[0].y, color)
+    end
   end
 
   def self.draw_points(points : Points, color : Color = Color::RGBA::WHITE, display_text_size : Int32? = nil, text_color : Color = Color::RGBA::WHITE)

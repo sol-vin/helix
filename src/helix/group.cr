@@ -1,5 +1,4 @@
 class Helix::SpecializedGroup(T)
-
   @array : Set(T) = Set(T).new
 
   getter? max_size : Int32? = nil
